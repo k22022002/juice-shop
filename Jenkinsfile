@@ -190,7 +190,7 @@ pipeline {
                //         sh """
                            // curl -k -f -L "http://192.168.12.190:8082/rest/api/latest/installers/agents/scripts/NODEJS?osFamily=LINUX&downloadWith=curl&projectKey=juice-shop&webServer=NODEJS_DOWNLOAD&flavor=DEFAULT&accessToken=\$SEEKER_ACCESS_TOKEN" -o install_seeker.sh
                            // chmod +x install_seeker.sh
-                        """
+                     //   """
                        // sh "./install_seeker.sh --install-dir ${agentDir} --no-prompt || true"
 
                        // echo "--- Extracting Agent ---"
