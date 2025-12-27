@@ -1,3 +1,4 @@
+
 pipeline {
     agent any
     
@@ -47,7 +48,8 @@ pipeline {
                     // 2. Install Dependencies cho Juice Shop
                     // Lưu ý: npm install của Juice shop khá nặng do có frontend Angular
                     echo '--- [Step] Installing Juice Shop Dependencies ---'
-                    sh 'npm install' 
+		    sh 'npm config set strict-ssl false'
+                    sh 'CYPRESS_INSTALL_BINARY=0 npm install' 
 
                     // LƯU Ý: Đã tạm bỏ bước 'npm test' và 'npm run lint' vì 
                     // unit test của Juice Shop rất nặng và cần cấu hình trình duyệt (Karma/Puppeteer).
