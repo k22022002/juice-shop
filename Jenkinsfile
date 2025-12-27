@@ -49,8 +49,7 @@ pipeline {
                     // Lưu ý: npm install của Juice shop khá nặng do có frontend Angular
                     echo '--- [Step] Installing Juice Shop Dependencies ---'
 		    sh 'npm config set strict-ssl false'
-                    sh 'CYPRESS_INSTALL_BINARY=0 npm install' 
-
+		    sh 'CYPRESS_INSTALL_BINARY=0 npm install --ignore-scripts --legacy-peer-deps'
                     // LƯU Ý: Đã tạm bỏ bước 'npm test' và 'npm run lint' vì 
                     // unit test của Juice Shop rất nặng và cần cấu hình trình duyệt (Karma/Puppeteer).
                     // Mục tiêu chính của ta là test SAST Coverity.
