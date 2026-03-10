@@ -80,7 +80,7 @@ pipeline {
                     steps {
                         echo '--- [Step] Synopsys Polaris Scan ---'
                         withCredentials([string(credentialsId: 'polaris-token', variable: 'POLARIS_TOKEN')]) {
-                            synopsys_scan product: 'polaris',
+                            blackduck_security_scan product: 'polaris',
                                           polaris_server_url: "${POLARIS_SERVER_URL}",
                                           polaris_access_token: POLARIS_TOKEN, // Đã bỏ dấu ngoặc kép
                                           polaris_application_name: 'Juice-Shop-Full-Scan',
