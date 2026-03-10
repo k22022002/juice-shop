@@ -154,12 +154,13 @@ pipeline {
                     if (fileExists('Dockerfile')) {
                         sh "docker build --no-cache -t ${DOCKER_IMAGE} ."
                         
-                        echo '--- [Step] Installing Trivy ---'
-                        sh 'rm -f trivy trivy.tar.gz' 
-                        sh 'curl -k -L -sS https://github.com/aquasecurity/trivy/releases/download/v0.58.2/trivy_0.58.2_Linux-64bit.tar.gz -o trivy.tar.gz'
-                        sh 'tar -xzf trivy.tar.gz trivy'
-                        sh 'chmod +x trivy'
-
+			echo '--- [Step] Installing Trivy ---'
+                        sh 'rm -f trivy' 
+                        // Sử dụng script chính thức để tải bản Trivy mới nhất thẳng vào thư mục hiện tại (.)
+                        sh 'curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b .'
+                        
+                        // In phiên bản ra log để kiểm tra cho chắc ăn
+                        sh './trivy --version'
                         echo '--- Running Trivy Container Scan ---'
                         try {
                            sh "./trivy image --insecure --exit-code 1 --severity HIGH,CRITICAL --no-progress --scanners vuln ${DOCKER_IMAGE}"
