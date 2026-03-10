@@ -75,19 +75,21 @@ pipeline {
                 }
                 
                 // Tích hợp Polaris (Đã thay thế cho SCA và Coverity)
-                stage('Polaris (SAST & SCA)') {
+		stage('Polaris (SAST & SCA)') {
                     steps {
                         echo '--- [Step] Synopsys Polaris Scan ---'
-                        synopsys_scan product: 'polaris',
-                                      polaris_serverUrl: "${POLARIS_SERVER_URL}",
-                                      polaris_credentialsId: 'polaris-token', 
-                                      polaris_application_name: 'Juice-Shop-Full-Scan',
-                                      polaris_project_name: 'juice-shop-project',
-                                      polaris_assessment_types: 'SAST,SCA',
-                                      mark_build_status: 'true'
+                        // Dùng withCredentials để lấy Secret Text an toàn từ Jenkins đưa vào biến POLARIS_TOKEN
+                        withCredentials([string(credentialsId: 'polaris-token', variable: 'POLARIS_TOKEN')]) {
+                            synopsys_scan product: 'polaris',
+                                          polaris_server_url: "${POLARIS_SERVER_URL}",
+                                          polaris_access_token: "${POLARIS_TOKEN}", // Đã sửa tên biến và cách truyền token
+                                          polaris_application_name: 'Juice-Shop-Full-Scan',
+                                          polaris_project_name: 'juice-shop-project',
+                                          polaris_assessment_types: 'SAST,SCA',
+                                          mark_build_status: 'true'
+                        }
                     }
                 }
-
                 /* =========================================================
                    TẠM THỜI ĐÓNG COVERITY SAST (Do đã dùng Polaris ở trên)
                    =========================================================
