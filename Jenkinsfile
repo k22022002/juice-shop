@@ -1,4 +1,3 @@
-
 pipeline {
     agent any
     
@@ -12,7 +11,7 @@ pipeline {
 
     environment {
         // --- Artifact Info ---
-        ARTIFACT_NAME   = "juice-shop-${BUILD_NUMBER}.tgz" // Đã sửa tên
+        ARTIFACT_NAME   = "juice-shop-${BUILD_NUMBER}.tgz" 
         PROVENANCE_FILE = "provenance.json"
         SIGNATURE_FILE  = "${ARTIFACT_NAME}.sig"
         
@@ -21,13 +20,16 @@ pipeline {
         SBOM_CONTAINER  = "cbom-container.json" 
         
         // --- Docker Info ---
-        DOCKER_IMAGE    = "juice-shop:${BUILD_NUMBER}" // Đã sửa tên
-        APP_PORT        = "3000" // Juice Shop vẫn dùng port 3000
+        DOCKER_IMAGE    = "juice-shop:${BUILD_NUMBER}" 
+        APP_PORT        = "3000" 
         DEPLOY_IP       = "192.168.12.190" 
+        
+        // --- Polaris Info ---
+        POLARIS_SERVER_URL = 'https://poc.polaris.blackduck.com' 
     }
 
     tools {
-        nodejs 'NodeJS' // Cần cấu hình NodeJS >= 18 trong Jenkins cho Juice Shop
+        nodejs 'NodeJS' 
     }
 
     stages {
@@ -46,13 +48,8 @@ pipeline {
                     sh './cosign version'                    
                   
                     // 2. Install Dependencies cho Juice Shop
-                    // Lưu ý: npm install của Juice shop khá nặng do có frontend Angular
                     echo '--- [Step] Installing Juice Shop Dependencies ---'
-		    sh 'npm config set strict-ssl false'
-		    sh 'CYPRESS_INSTALL_BINARY=0 npm install --ignore-scripts --legacy-peer-deps'
-                    // LƯU Ý: Đã tạm bỏ bước 'npm test' và 'npm run lint' vì 
-                    // unit test của Juice Shop rất nặng và cần cấu hình trình duyệt (Karma/Puppeteer).
-                    // Mục tiêu chính của ta là test SAST Coverity.
+                    sh 'npm install' 
                 }
             }
         }
@@ -76,20 +73,24 @@ pipeline {
                         }
                     }
                 }
-                stage('SCA (Dependency Check)') {
+                
+                // Tích hợp Polaris (Đã thay thế cho SCA và Coverity)
+                stage('Polaris (SAST & SCA)') {
                     steps {
-                        echo '--- [Step] Scanning Dependencies with OSS Index ---'
-                        withCredentials([usernamePassword(credentialsId: 'oss-index-credentials', passwordVariable: 'OSS_TOKEN', usernameVariable: 'OSS_USER')]) {
-                            dependencyCheck additionalArguments: """
-                                --format HTML --format XML 
-                                --failOnCVSS 7.0 
-                                --ossIndexUsername ${OSS_USER} 
-                                --ossIndexPassword ${OSS_TOKEN}
-                            """, 
-                            odcInstallation: 'OWASP-Dependency-Check'
-                        }
+                        echo '--- [Step] Synopsys Polaris Scan ---'
+                        synopsys_scan product: 'polaris',
+                                      polaris_serverUrl: "${POLARIS_SERVER_URL}",
+                                      polaris_credentialsId: 'polaris-token', 
+                                      polaris_application_name: 'Juice-Shop-Full-Scan',
+                                      polaris_project_name: 'juice-shop-project',
+                                      polaris_assessment_types: 'SAST,SCA',
+                                      mark_build_status: 'true'
                     }
-                }                
+                }
+
+                /* =========================================================
+                   TẠM THỜI ĐÓNG COVERITY SAST (Do đã dùng Polaris ở trên)
+                   =========================================================
                 stage('SAST (Coverity)') {
                     when {
                         anyOf {
@@ -101,21 +102,16 @@ pipeline {
                         withCredentials([usernamePassword(credentialsId: 'coverity-credentials', usernameVariable: 'COV_USER', passwordVariable: 'COV_PASS')]) {
                             script {
                                 echo '--- [Step] Synopsys Coverity SAST ---'
-                                
                                 def buildVer = "1.0.${env.BUILD_NUMBER}"
-                                def covStream = "juice-shop-stream" // Đã sửa tên stream
+                                def covStream = "juice-shop-stream" 
                                 def covBin = "/home/ubuntu/cov-analysis-linux64-2025.9.2/bin"
                                 def covUrl = "http://192.168.12.190:8081"
 
-                                // Capture & Analyze (Đã thêm cấu hình cho TypeScript)
                                 sh "${covBin}/cov-configure --javascript --typescript || true"
                                 sh "rm -rf idir"
-                                
-                                // Với Javascript/Typescript, dùng capture project-dir là chuẩn xác nhất
                                 sh "${covBin}/coverity capture --project-dir . --dir idir"
                                 sh "${covBin}/cov-analyze --dir idir --all --webapp-security --strip-path \$(pwd)"
 
-                                // Commit Results
                                 echo '--- Committing Results ---'
                                 sh """
                                     ${covBin}/cov-commit-defects --dir idir \
@@ -126,22 +122,19 @@ pipeline {
                                     --description "Juice Shop Build ${env.BUILD_NUMBER}"
                                 """
 
-                                // Reporting
                                 sh "${covBin}/cov-format-errors --dir idir --html-output coverity-report"
                                 sh "${covBin}/cov-format-errors --dir idir --json-output-v7 coverity_results.json"
 
-                                // Quality Gate
                                 def defectCount = sh(script: "jq '.issues | length' coverity_results.json", returnStdout: true).trim().toInteger()
                                 echo "Coverity found: ${defectCount} defects"
                                 if (defectCount > 0) {
                                     echo "CẢNH BÁO: Coverity phát hiện ${defectCount} vấn đề!"
-                                    // Bỏ comment dòng dưới nếu muốn chặn pipeline khi có lỗi Coverity
-                                    // currentBuild.result = 'UNSTABLE' 
                                 }
                             }
                         }
                     }
                 }
+                ========================================================= */
             }
         }
 
@@ -152,7 +145,7 @@ pipeline {
                 script {
                     sh 'rm -f *.tgz *.sig'
                     sh "npm pack"
-                    sh "mv juice-shop-*.tgz ${ARTIFACT_NAME}" // Đã sửa logic mv
+                    sh "mv juice-shop-*.tgz ${ARTIFACT_NAME}" 
 
                     echo "--- Building Docker Image: ${DOCKER_IMAGE} ---"
                     if (fileExists('Dockerfile')) {
@@ -178,68 +171,8 @@ pipeline {
             }
         }
         
-        // --- BƯỚC 4: IAST (Synopsys Seeker) ---
- //       stage('4. IAST (Synopsys Seeker)') {
-   //         steps {
-     //           script {
-       //             echo '--- [Step] Synopsys Seeker IAST Setup ---'
-         //           withCredentials([string(credentialsId: 'seeker-agent-token', variable: 'SEEKER_ACCESS_TOKEN')]) {
-           //             def agentDir = "${env.WORKSPACE}/seeker"
-             //           sh "rm -rf ${agentDir} && mkdir -p ${agentDir}"
-
-                        // Đã sửa projectKey thành juice-shop trong URL
-               //         sh """
-                           // curl -k -f -L "http://192.168.12.190:8082/rest/api/latest/installers/agents/scripts/NODEJS?osFamily=LINUX&downloadWith=curl&projectKey=juice-shop&webServer=NODEJS_DOWNLOAD&flavor=DEFAULT&accessToken=\$SEEKER_ACCESS_TOKEN" -o install_seeker.sh
-                           // chmod +x install_seeker.sh
-                     //   """
-                       // sh "./install_seeker.sh --install-dir ${agentDir} --no-prompt || true"
-
-                       // echo "--- Extracting Agent ---"
-                       // dir(agentDir) {
-                         //   if (fileExists('agent_NODEJS.zip')) {
-                           //     try {
-                             //       sh "unzip -o agent_NODEJS.zip"
-                               // } catch (Exception e) {
-                                 //   sh "python3 -c \"import zipfile; import sys; zipfile.ZipFile('agent_NODEJS.zip', 'r').extractall('.')\""
-                               // }
-                           // }
-                           // if (fileExists('seeker-agent.tgz')) {
-                             //   sh "tar -xzf seeker-agent.tgz"
-                           // }
-                       // }
-
-                       // def agentFile = sh(script: "find ${agentDir} -name index.js -o -name index.mjs | head -n 1", returnStdout: true).trim()
-                       // if (agentFile == "") {
-                           // error "LỖI: Không tìm thấy index.js của Seeker."
-                       // }
-
-                        // Đã sửa projectKey thành juice-shop
-                       // env.SEEKER_SERVER_URL = "http://192.168.12.190:8082"
-                       // env.SEEKER_PROJECT_KEY = "juice-shop"
-                        
-                       // sh "pkill -f node || true"
-                      //  sh "NODE_OPTIONS='--import \"${agentFile}\"' nohup npm start > app_iast.log 2>&1 &"
-                        
-                      //  sh "sleep 15"
-                      //  sh "cat app_iast.log"
-                        
-                       // if (sh(script: "pgrep -f 'node' > /dev/null && echo 'YES' || echo 'NO'", returnStdout: true).trim() == 'YES') {
-                         //   echo "SUCCESS: App running with Seeker"
-                           // try {
-                             //   sh "curl -v http://localhost:3000 || true"
-                           // } finally {
-                             //   sh "pkill -f node || true"
-                           // }
-                      //  } else {
-                          //  error "App crashed."
-                       // }
-                   // }
-               // }
-           // }
-       // }
-
         // --- BƯỚC 5: SBOM CODE ---
-        stage('5. Generate Code SBOM') {
+        stage('4. Generate Code SBOM') {
             steps {
                 echo '--- [Step] Generate Code SBOM (CycloneDX) ---'
                 sh "npx @cyclonedx/cyclonedx-npm --output-file ${SBOM_CODE}"
@@ -247,7 +180,7 @@ pipeline {
         }
     
         // --- BƯỚC 6: SIGN ---
-        stage('6. Sign Release Artifacts') {
+        stage('5. Sign Release Artifacts') {
             steps {
                 echo '--- [Step] Sign Artifacts using Credentials ---'
                 withCredentials([
@@ -281,7 +214,7 @@ pipeline {
         }
 
         // --- BƯỚC 7: VERIFY ---
-        stage('7. Verify Signatures') {
+        stage('6. Verify Signatures') {
             steps {
                 echo '--- [Step] Verify Signatures ---'
                 script {
@@ -299,7 +232,7 @@ pipeline {
         }
 
         // --- BƯỚC 8: ATTESTATION ---
-        stage('8. Generate Attestation') {
+        stage('7. Generate Attestation') {
             steps {
                 echo '--- [Step] Generate Provenance Attestation ---'
                 script {
@@ -331,11 +264,11 @@ pipeline {
         }
         
         // --- BƯỚC 9: DEPLOY ---
-        stage('9. Deploy') {
+        stage('8. Deploy') {
             steps {
                 echo '--- [Step] Deploying to Production ---'
                 script {
-                    def containerName = "juice-shop-prod" // Đã sửa tên
+                    def containerName = "juice-shop-prod" 
                     
                     echo "Deploying Docker Image: ${DOCKER_IMAGE}..."
                     sh "docker rm -f ${containerName} || true"
@@ -357,7 +290,6 @@ pipeline {
     }
     post {
         always {
-             dependencyCheckPublisher pattern: 'dependency-check-report.xml'
              sh "docker rmi ${DOCKER_IMAGE} || true"
              sh "rm -f cosign cosign.key" 
              sh "pkill -f node || true"
