@@ -86,7 +86,7 @@ pipeline {
                                           polaris_application_name: 'Juice-Shop-Full-Scan',
                                           polaris_project_name: 'juice-shop-project',
                                           polaris_branch_name: 'main', // THÊM MỚI: Khai báo nhánh bắt buộc
-                                          polaris_assessment_types: 'SAST,SCA',
+                                          polaris_assessment_types: 'SAST,SCA'
                         }
                     }
                 }
