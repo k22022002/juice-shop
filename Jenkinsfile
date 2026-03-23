@@ -26,6 +26,10 @@ pipeline {
         
         // --- Polaris Info ---
         POLARIS_SERVER_URL = 'https://poc.polaris.blackduck.com' 
+
+        // THÊM MỚI: Bật Debug để xem chi tiết tiến trình gọi API của Polaris
+        BRIDGE_DEBUG = 'true'
+        SYNOPSYS_BRIDGE_DEBUG = 'true'
     }
 
     tools {
@@ -33,13 +37,14 @@ pipeline {
     }
 
     stages {
-        // --- BƯỚC 1: INITIALIZE ---
+     
+       // --- BƯỚC 1: INITIALIZE ---
         stage('1. Initialize & Install') {
             steps {
                 echo '--- [Step] Checkout & Install ---'
                 cleanWs()
                 checkout scm
-                
+            
                 script {
                     // 1. Install Cosign
                     sh 'rm -f cosign'
@@ -53,7 +58,8 @@ pipeline {
                 }
             }
         }
-	// --- BƯỚC 2: SECURITY STATIC ---
+
+        // --- BƯỚC 2: SECURITY STATIC ---
         stage('2. Security & Quality Gates (Static)') {
             parallel {
                 stage('Secret Scan (Gitleaks)') {
@@ -79,17 +85,22 @@ pipeline {
                 stage('Polaris (SAST & SCA)') {
                     steps {
                         echo '--- [Step] Synopsys Polaris Scan ---'
-                        withCredentials([string(credentialsId: 'polaris-token', variable: 'POLARIS_TOKEN')]) {
-                            security_scan product: 'polaris',
-                                          polaris_server_url: "${POLARIS_SERVER_URL}",
-                                          polaris_access_token: POLARIS_TOKEN, // Đã bỏ dấu ngoặc kép
-                                          polaris_application_name: 'Juice-Shop-Full-Scan',
-                                          polaris_project_name: 'juice-shop-project',
-                                          polaris_branch_name: 'main', // THÊM MỚI: Khai báo nhánh bắt buộc
-                                          polaris_assessment_types: 'SAST,SCA'
+                        
+                        // THÊM MỚI: Đặt timeout 20 phút để tránh treo Jenkins agent vĩnh viễn
+                        timeout(time: 20, unit: 'MINUTES') {
+                            withCredentials([string(credentialsId: 'polaris-token', variable: 'POLARIS_TOKEN')]) {
+                                security_scan product: 'polaris',
+                                              polaris_server_url: "${POLARIS_SERVER_URL}",
+                                              polaris_access_token: POLARIS_TOKEN, 
+                                              polaris_application_name: 'Juice-Shop-Full-Scan',
+                                              polaris_project_name: 'juice-shop-project',
+                                              polaris_branch_name: 'main', 
+                                              polaris_assessment_types: 'SAST,SCA'
+                            }
                         }
                     }
                 }
+                
                 /* =========================================================
                    TẠM THỜI ĐÓNG COVERITY SAST (Do đã dùng Polaris ở trên)
                    =========================================================
@@ -153,16 +164,16 @@ pipeline {
                     if (fileExists('Dockerfile')) {
                         sh "docker build --no-cache -t ${DOCKER_IMAGE} ."
                         
-			echo '--- [Step] Installing Trivy ---'
+                        echo '--- [Step] Installing Trivy ---'
                         sh 'rm -f trivy' 
                         // Sử dụng script chính thức để tải bản Trivy mới nhất thẳng vào thư mục hiện tại (.)
                         sh 'curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b .'
-                        
                         // In phiên bản ra log để kiểm tra cho chắc ăn
                         sh './trivy --version'
+                        
                         echo '--- Running Trivy Container Scan ---'
                         try {
-                           sh "./trivy image --insecure --exit-code 1 --severity HIGH,CRITICAL --no-progress --scanners vuln ${DOCKER_IMAGE}"
+                            sh "./trivy image --insecure --exit-code 1 --severity HIGH,CRITICAL --no-progress --scanners vuln ${DOCKER_IMAGE}"
                         } catch (Exception e) {
                              echo "Trivy found vulnerabilities!"
                         }
@@ -174,7 +185,7 @@ pipeline {
             }
         }
         
-        // --- BƯỚC 5: SBOM CODE ---
+        // --- BƯỚC 4: SBOM CODE ---
         stage('4. Generate Code SBOM') {
             steps {
                 echo '--- [Step] Generate Code SBOM (CycloneDX) ---'
@@ -182,7 +193,7 @@ pipeline {
             }
         }
     
-        // --- BƯỚC 6: SIGN ---
+        // --- BƯỚC 5: SIGN ---
         stage('5. Sign Release Artifacts') {
             steps {
                 echo '--- [Step] Sign Artifacts using Credentials ---'
@@ -191,7 +202,7 @@ pipeline {
                     file(credentialsId: 'cosign-private-key', variable: 'COSIGN_KEY_PATH')
                 ]) {
                      script {
-                        def cosignCmd = (fileExists('cosign')) ? './cosign' : 'cosign'
+                         def cosignCmd = (fileExists('cosign')) ? './cosign' : 'cosign'
                         sh "cp \$COSIGN_KEY_PATH cosign.key"
                         sh "${cosignCmd} public-key --key cosign.key --outfile cosign.pub"
 
@@ -216,7 +227,7 @@ pipeline {
             }
         }
 
-        // --- BƯỚC 7: VERIFY ---
+        // --- BƯỚC 6: VERIFY ---
         stage('6. Verify Signatures') {
             steps {
                 echo '--- [Step] Verify Signatures ---'
@@ -234,7 +245,7 @@ pipeline {
             }
         }
 
-        // --- BƯỚC 8: ATTESTATION ---
+        // --- BƯỚC 7: ATTESTATION ---
         stage('7. Generate Attestation') {
             steps {
                 echo '--- [Step] Generate Provenance Attestation ---'
@@ -266,7 +277,7 @@ pipeline {
             }
         }
         
-        // --- BƯỚC 9: DEPLOY ---
+        // --- BƯỚC 8: DEPLOY ---
         stage('8. Deploy') {
             steps {
                 echo '--- [Step] Deploying to Production ---'
