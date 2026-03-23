@@ -96,6 +96,7 @@ pipeline {
                                               polaris_project_name: 'juice-shop-project',
                                               polaris_branch_name: 'main', 
                                               polaris_assessment_types: 'SAST,SCA'
+					      polaris_waitForServer: false
                             }
                         }
                     }
