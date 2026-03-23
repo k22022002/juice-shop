@@ -1,9 +1,9 @@
 pipeline {
     agent any
     
-    triggers {
-        cron('H 2 * * *')
-    }
+   // triggers {
+       // cron('H 2 * * *')
+   // }
 
     parameters {
         booleanParam(name: 'FORCE_COVERITY', defaultValue: false, description: 'Tích vào đây nếu muốn chạy quét Coverity Full Scan')
