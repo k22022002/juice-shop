@@ -76,17 +76,17 @@ export class ScoreBoardComponent implements OnInit, OnDestroy {
         return {
           ...challenge,
           hintText: hints.filter((hint) => hint.ChallengeId === challenge.id && hint.unlocked).map((hint) => hint.order + '. ' + hint.text).join('\n\n'),
-          nextHint: hints.filter((hint) => hint.ChallengeId === challenge.id && !hint.unlocked).sort((a, b) => a.order - b.order).map((hint) => hint.id)[0],
-          hintsUnlocked: hints.filter((hint) => hint.ChallengeId === challenge.id && hint.unlocked).length,
-          hintsAvailable: hints.filter((hint) => hint.ChallengeId === challenge.id).length,
-          tagList: challenge.tags ? challenge.tags.split(',').map((tag) => tag.trim()) : [],
-          originalDescription: challenge.description as string,
-          description: this.sanitizer.bypassSecurityTrustHtml(challenge.description as string)
-        }
-      })
-
-      this.allChallenges = transformedChallenges
-      this.filterAndUpdateChallenges()
+nextHint: hints.filter((hint) => hint.ChallengeId === challenge.id && !hint.unlocked).sort((a, b) => a.order - b.order).map((hint) => hint.id)[0],
+           hintsUnlocked: hints.filter((hint) => hint.ChallengeId === challenge.id && hint.unlocked).length,
+           hintsAvailable: hints.filter((hint) => hint.ChallengeId === challenge.id).length,
+           tagList: challenge.tags ? challenge.tags.split(',').map((tag) => tag.trim()) : [],
+           originalDescription: challenge.description as string,
+           description: this.sanitizer.sanitize(1, challenge.description as string)
+         }
+       })
+ 
+       this.allChallenges = transformedChallenges
+       this.filterAndUpdateChallenges()
       this.isInitialized = true
     })
     this.subscriptions.push(dataLoaderSubscription)

@@ -675,16 +675,17 @@ restoreOverwrittenFilesWithOriginals().then(() => {
 
 const uploadToMemory = multer({ storage: multer.memoryStorage(), limits: { fileSize: 200000 } })
 const mimeTypeMap: any = {
-  'image/png': 'png',
-  'image/jpeg': 'jpg',
-  'image/jpg': 'jpg'
-}
-const uploadToDisk = multer({
-  storage: multer.diskStorage({
-    destination: (req: Request, file: any, cb: any) => {
-      const isValid = mimeTypeMap[file.mimetype]
-      let error: Error | null = new Error('Invalid mime type')
-      if (isValid) {
+   'image/png': 'png',
+   'image/jpeg': 'jpg',
+   'image/jpg': 'jpg'
+ }
+ const uploadToDisk = multer({
+   limits: { fileSize: 1024 * 1024 * 5 }, // limit file size to 5MB
+   storage: multer.diskStorage({
+     destination: (req: Request, file: any, cb: any) => {
+       const isValid = mimeTypeMap[file.mimetype]
+       let error: Error | null = new Error('Invalid mime type')
+       if (isValid) {
         error = null
       }
       cb(error, path.resolve('frontend/dist/frontend/assets/public/images/uploads/'))
