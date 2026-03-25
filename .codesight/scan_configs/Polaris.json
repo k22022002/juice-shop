@@ -1,0 +1,103 @@
+{
+  "configId": {
+    "id": "6679d8cf-1f47-4acd-9abb-caa0cc735f41"
+  },
+  "scanType": {
+    "type": 1,
+    "name": "Polaris",
+    "supportsDiffing": true,
+    "description": "Runs both static and software composition analysis scans. Detects hard-coded secrets, security defects, and vulnerabilities in both proprietary and open source code."
+  },
+  "coverityConfig": {
+    "configFilePath": {
+      "source": {
+        "type": 8
+      }
+    },
+    "additionalAnalysisArguments": {
+      "source": {
+        "type": 8
+      }
+    }
+  },
+  "blackDuckConfig": {
+    "additionalArguments": {
+      "source": {
+        "type": 8
+      }
+    },
+    "configFilePath": {
+      "source": {
+        "type": 8
+      }
+    },
+    "searchDepth": {
+      "source": {
+        "type": 8
+      }
+    }
+  },
+  "bridgeConfig": {
+    "installationLocation": {
+      "source": {
+        "type": 8
+      }
+    },
+    "additionalArguments": {
+      "source": {
+        "type": 8
+      }
+    },
+    "configFilePath": {
+      "source": {
+        "type": 8
+      }
+    },
+    "scanTypes": [
+      0,
+      1
+    ]
+  },
+  "issueSource": {
+    "reference": {
+      "info": {
+        "name": "juice-shop-project",
+        "id": "7f23222c-2c04-474a-b6bf-27d176fb9eb5",
+        "displayName": "juice-shop-project",
+        "depth": 2
+      },
+      "parent": {
+        "info": {
+          "name": "Juice-Shop-Full-Scan",
+          "id": "189fab31-b222-43e9-8975-c6dafd8715e4",
+          "displayName": "Juice-Shop-Full-Scan",
+          "depth": 1,
+          "localId": "poc.polaris.blackduck.com--Juice-Shop-Full-Scan-189fab31-b222-43e9-8975-c6dafd8715e4"
+        }
+      }
+    }
+  },
+  "buildConfig": {
+    "buildCommand": {
+      "source": {
+        "type": 8
+      }
+    },
+    "cleanCommand": {
+      "source": {
+        "type": 8
+      }
+    }
+  },
+  "workingDirectory": {
+    "value": "C:\\Users\\admin\\Downloads\\juice-shop",
+    "source": {
+      "type": 8
+    }
+  },
+  "path": {
+    "source": {
+      "type": 8
+    }
+  }
+}

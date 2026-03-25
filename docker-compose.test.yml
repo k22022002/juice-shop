@@ -6,3 +6,5 @@ services:
   app:
     image: bkimminich/juice-shop:latest
     build: ./
+    cap_drop:
+      - NET_RAW

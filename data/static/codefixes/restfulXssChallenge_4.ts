@@ -54,11 +54,11 @@ ngAfterViewInit () {
         this.cdRef.detectChanges()
       },
       error: (err) => { console.log(err) }
-    })
-  }
-
-  trustProductDescription (tableData: any[]) {
-    for (let i = 0; i < tableData.length; i++) {
-      tableData[i].description = this.sanitizer.bypassSecurityTrustScript(tableData[i].description)
+  })
+   }
+ 
+   trustProductDescription (tableData: any[]) {
+     for (let i = 0; i < tableData.length; i++) {
+      tableData[i].description = this.sanitizer.sanitize(SecurityContext.HTML, tableData[i].description)
     }
   }
