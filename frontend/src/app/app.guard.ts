@@ -35,8 +35,7 @@ export class LoginGuard implements CanActivate {
     const token = localStorage.getItem('token')
     if (token) {
       try {
-        const verifiedPayload = jwt.verify(token, 'your-secret-key')
-        payload = verifiedPayload
+        payload = jwtDecode(token)
       } catch (err) {
         console.log(err)
       }

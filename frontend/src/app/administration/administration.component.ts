@@ -20,7 +20,7 @@ import { MatButtonModule } from '@angular/material/button'
 
 import { TranslateModule } from '@ngx-translate/core'
 import { MatCardModule } from '@angular/material/card'
-import { SecurityContext } from '@angular/core';
+
 library.add(faUser, faEye, faHome, faArchive, faTrashAlt)
 
 @Component({
@@ -57,7 +57,7 @@ export class AdministrationComponent implements OnInit {
         this.userDataSource = users
         this.userDataSourceHidden = users
         for (const user of this.userDataSource) {
-          user.email = `${this.sanitizer.sanitize(SecurityContext.HTML, user.email)}`;
+          user.email = this.sanitizer.bypassSecurityTrustHtml(`<span class="${this.doesUserHaveAnActiveSession(user) ? 'confirmation' : 'error'}">${user.email}</span>`)
         }
         this.userDataSource = new MatTableDataSource(this.userDataSource)
         this.userDataSource.paginator = this.paginatorUsers
@@ -75,7 +75,7 @@ export class AdministrationComponent implements OnInit {
       next: (feedbacks) => {
         this.feedbackDataSource = feedbacks
         for (const feedback of this.feedbackDataSource) {
-          feedback.comment = this.sanitizeHtml(feedback.comment)
+          feedback.comment = this.sanitizer.bypassSecurityTrustHtml(feedback.comment)
         }
         this.feedbackDataSource = new MatTableDataSource(this.feedbackDataSource)
         this.feedbackDataSource.paginator = this.paginatorFeedb
@@ -87,11 +87,7 @@ export class AdministrationComponent implements OnInit {
       }
     })
   }
-  private sanitizeHtml(input: string): string {
-    const tempElement = document.createElement('div');
-    tempElement.textContent = input; 
-    return tempElement.innerHTML;
-  }
+
   deleteFeedback (id: number) {
     this.feedbackService.del(id).subscribe({
       next: () => {

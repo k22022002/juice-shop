@@ -8,7 +8,7 @@ import { DomSanitizer } from '@angular/platform-browser'
 import * as jwtDecode from 'jwt-decode'
 import { TranslateModule } from '@ngx-translate/core'
 import { MatCardModule } from '@angular/material/card'
-import { SecurityContext } from '@angular/core';
+
 @Component({
   selector: 'app-last-login-ip',
   templateUrl: './last-login-ip.component.html',
@@ -29,16 +29,15 @@ export class LastLoginIpComponent implements OnInit {
     }
   }
 
-import * as jwt from 'jsonwebtoken'
-
   parseAuthToken () {
     let payload = {} as any
     const token = localStorage.getItem('token')
     if (token) {
       payload = jwtDecode(token)
       if (payload.data.lastLoginIp) {
-        this.lastLoginIp = `${this.sanitizer.sanitize(SecurityContext.HTML, payload?.data?.lastLoginIp || '')}`
-      } 
+
+        this.lastLoginIp = this.sanitizer.bypassSecurityTrustHtml(`<small>${payload.data.lastLoginIp}</small>`)
+      }
     }
   }
 }

@@ -168,18 +168,16 @@ export function waitForLogIn () {
 }
 
 export function waitForAdminLogIn () {
-   import jwt from 'jsonwebtoken'; // Make sure to import the jsonwebtoken library
-
-   return async () => {
-     while (true) {
-       let role = ''
-       try {
-         const token: string = localStorage.getItem('token')
-         const decodedToken = jwt.verify(token, 'your-secret-key') // Verify the token signature
-         const payload = decodedToken as any
-         role = payload.data.role
-       } catch {
-         console.log('Role from token could not be accessed.')
+  return async () => {
+    while (true) {
+      let role = ''
+      try {
+        const token: string = localStorage.getItem('token')
+        const decodedToken = jwtDecode(token)
+        const payload = decodedToken as any
+        role = payload.data.role
+      } catch {
+        console.log('Role from token could not be accessed.')
       }
       if (role === 'admin') {
         break
