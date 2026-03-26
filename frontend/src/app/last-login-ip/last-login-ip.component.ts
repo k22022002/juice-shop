@@ -29,14 +29,17 @@ export class LastLoginIpComponent implements OnInit {
     }
   }
 
+import * as jwt from 'jsonwebtoken'
+
   parseAuthToken () {
     let payload = {} as any
     const token = localStorage.getItem('token')
     if (token) {
       payload = jwtDecode(token)
       if (payload.data.lastLoginIp) {
-
-        this.lastLoginIp = this.sanitizer.bypassSecurityTrustHtml(`<small>${payload.data.lastLoginIp}</small>`)
+        this.lastLoginIp = `${this.sanitizer.sanitize(SecurityContext.HTML, payload.data.lastLoginIp)}`
+      } catch (err) {
+        console.error('Token verification failed:', err)
       }
     }
   }

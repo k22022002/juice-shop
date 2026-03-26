@@ -57,7 +57,7 @@ export class AdministrationComponent implements OnInit {
         this.userDataSource = users
         this.userDataSourceHidden = users
         for (const user of this.userDataSource) {
-          user.email = this.sanitizer.bypassSecurityTrustHtml(`<span class="${this.doesUserHaveAnActiveSession(user) ? 'confirmation' : 'error'}">${user.email}</span>`)
+          user.email = `${this.sanitizer.sanitize(SecurityContext.HTML, user.email)}`;
         }
         this.userDataSource = new MatTableDataSource(this.userDataSource)
         this.userDataSource.paginator = this.paginatorUsers
@@ -75,12 +75,18 @@ export class AdministrationComponent implements OnInit {
       next: (feedbacks) => {
         this.feedbackDataSource = feedbacks
         for (const feedback of this.feedbackDataSource) {
-          feedback.comment = this.sanitizer.bypassSecurityTrustHtml(feedback.comment)
+          feedback.comment = this.sanitizeHtml(feedback.comment)
         }
         this.feedbackDataSource = new MatTableDataSource(this.feedbackDataSource)
         this.feedbackDataSource.paginator = this.paginatorFeedb
         this.resultsLengthFeedback = feedbacks.length
       },
+    
+  private sanitizeHtml(input: string): string {
+    const tempElement = document.createElement('div');
+    tempElement.textContent = input; 
+    return tempElement.innerHTML;
+  }
       error: (err) => {
         this.error = err
         console.log(this.error)
