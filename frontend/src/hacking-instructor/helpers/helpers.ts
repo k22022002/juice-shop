@@ -4,7 +4,7 @@
  */
 
 import jwtDecode from 'jwt-decode'
-
+import * as jwt from 'jsonwebtoken';
 let config
 const playbackDelays = {
   faster: 0.5,
@@ -169,16 +169,16 @@ export function waitForLogIn () {
 
 export function waitForAdminLogIn () {
   return async () => {
-    while (true) {
-      let role = ''
-      try {
-        const token: string = localStorage.getItem('token')
-        const decodedToken = jwtDecode(token)
-        const payload = decodedToken as any
-        role = payload.data.role
-      } catch {
-        console.log('Role from token could not be accessed.')
-      }
+  while (true) {
+    let role = ''
+    try {
+      const token: string = localStorage.getItem('token')
+      const verifiedToken = jwt.verify(token, 'your-secret-key')
+      const payload = verifiedToken as any
+      role = payload.data.role
+    } catch {
+      console.log('Role from token could not be accessed.')
+    }
       if (role === 'admin') {
         break
       }
