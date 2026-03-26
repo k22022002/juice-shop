@@ -20,7 +20,7 @@ import { MatButtonModule } from '@angular/material/button'
 
 import { TranslateModule } from '@ngx-translate/core'
 import { MatCardModule } from '@angular/material/card'
-
+import { SecurityContext } from '@angular/core';
 library.add(faUser, faEye, faHome, faArchive, faTrashAlt)
 
 @Component({
@@ -81,19 +81,17 @@ export class AdministrationComponent implements OnInit {
         this.feedbackDataSource.paginator = this.paginatorFeedb
         this.resultsLengthFeedback = feedbacks.length
       },
-    
-  private sanitizeHtml(input: string): string {
-    const tempElement = document.createElement('div');
-    tempElement.textContent = input; 
-    return tempElement.innerHTML;
-  }
       error: (err) => {
         this.error = err
         console.log(this.error)
       }
     })
   }
-
+  private sanitizeHtml(input: string): string {
+    const tempElement = document.createElement('div');
+    tempElement.textContent = input; 
+    return tempElement.innerHTML;
+  }
   deleteFeedback (id: number) {
     this.feedbackService.del(id).subscribe({
       next: () => {

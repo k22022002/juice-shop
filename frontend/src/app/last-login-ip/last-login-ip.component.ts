@@ -8,7 +8,7 @@ import { DomSanitizer } from '@angular/platform-browser'
 import * as jwtDecode from 'jwt-decode'
 import { TranslateModule } from '@ngx-translate/core'
 import { MatCardModule } from '@angular/material/card'
-
+import { SecurityContext } from '@angular/core';
 @Component({
   selector: 'app-last-login-ip',
   templateUrl: './last-login-ip.component.html',
@@ -37,10 +37,8 @@ import * as jwt from 'jsonwebtoken'
     if (token) {
       payload = jwtDecode(token)
       if (payload.data.lastLoginIp) {
-        this.lastLoginIp = `${this.sanitizer.sanitize(SecurityContext.HTML, payload.data.lastLoginIp)}`
-      } catch (err) {
-        console.error('Token verification failed:', err)
-      }
+        this.lastLoginIp = `${this.sanitizer.sanitize(SecurityContext.HTML, payload?.data?.lastLoginIp || '')}`
+      } 
     }
   }
 }
