@@ -170,23 +170,25 @@ export function waitForLogIn () {
 export function waitForAdminLogIn () {
   return async () => {
     while (true) {
-      let role = ''
+      let role = '';
       try {
-        const token = localStorage.getItem('token')
-        if (token) {
-          // Dùng jwt-decode để đọc nội dung (không dùng secret key)
-          const payload: any = jwtDecode(token)
-          // Kiểm tra cấu trúc payload của bạn (thường là payload.role hoặc payload.data.role)
-          role = payload?.data?.role || payload?.role 
+        // Gọi API lên Backend. Backend sẽ lấy token từ header, 
+        // tự verify bằng Secret Key và trả về thông tin user.
+        const response = await fetch('/api/users/me', {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          role = data.role;
         }
       } catch (e) {
-        console.log('Role from token could not be accessed.')
+        console.log('Role from token could not be accessed.');
       }
 
       if (role === 'admin') {
-        break
+        break;
       }
-      await sleep(100)
+      await sleep(100);
     }
   }
 }
