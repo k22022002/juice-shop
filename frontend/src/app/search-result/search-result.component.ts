@@ -29,7 +29,7 @@ import { MatTooltip } from '@angular/material/tooltip'
 import { MatCardModule, MatCardImage, MatCardTitle, MatCardContent } from '@angular/material/card'
 import { MatGridList, MatGridTile } from '@angular/material/grid-list'
 import { AsyncPipe } from '@angular/common'
-
+import { SecurityContext } from '@angular/core';
 library.add(faEye, faCartPlus)
 
 interface TableEntry {
