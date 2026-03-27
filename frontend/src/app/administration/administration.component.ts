@@ -75,7 +75,7 @@ export class AdministrationComponent implements OnInit {
       next: (feedbacks) => {
         this.feedbackDataSource = feedbacks
         for (const feedback of this.feedbackDataSource) {
-          feedback.comment = this.sanitizer.bypassSecurityTrustHtml(feedback.comment)
+          // Assuming Angular's built-in sanitizer is used here for automatic sanitization
         }
         this.feedbackDataSource = new MatTableDataSource(this.feedbackDataSource)
         this.feedbackDataSource.paginator = this.paginatorFeedb
