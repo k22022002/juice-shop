@@ -45,8 +45,7 @@ export class LastLoginIpComponent implements OnInit {
         return
       }
       if (payload.data && payload.data.lastLoginIp) {
-
-        this.lastLoginIp = this.sanitizer.bypassSecurityTrustHtml(`${payload.data.lastLoginIp}`)
+        this.lastLoginIp = payload.data.lastLoginIp
       }
     }
   }
