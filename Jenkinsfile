@@ -87,7 +87,7 @@ pipeline {
                         echo '--- [Step] Synopsys Polaris Scan ---'
                         
                         // THÊM MỚI: Đặt timeout 20 phút để tránh treo Jenkins agent vĩnh viễn
-                        timeout(time: 20, unit: 'MINUTES') {
+                        timeout(time: 30, unit: 'MINUTES') {
                             withCredentials([string(credentialsId: 'polaris-token', variable: 'POLARIS_TOKEN')]) {
                                 security_scan product: 'polaris',
                                               polaris_server_url: "${POLARIS_SERVER_URL}",
