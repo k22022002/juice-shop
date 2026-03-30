@@ -18,7 +18,7 @@ import { MatButtonModule } from '@angular/material/button'
 
 import { TranslateModule } from '@ngx-translate/core'
 import { MatCardModule } from '@angular/material/card'
-
+import { SecurityContext } from '@angular/core';
 library.add(faFacebook, faTwitter, faSlack, faReddit, faNewspaper, faStar, fasStar, faPalette, faMastodon, faBold)
 
 @Component({
