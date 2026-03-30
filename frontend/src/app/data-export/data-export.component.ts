@@ -51,13 +51,13 @@ export class DataExportComponent implements OnInit {
       this.presenceOfCaptcha = true
     }
   }
-
+ 
   getNewCaptcha () {
     this.imageCaptchaService.getCaptcha().subscribe((data: any) => {
-      this.captcha = this.sanitizer.bypassSecurityTrustHtml(data.image)
+      this.captcha = data.image
     })
   }
-
+ 
   save () {
     if (this.presenceOfCaptcha) {
       this.dataRequest.answer = this.captchaControl.value

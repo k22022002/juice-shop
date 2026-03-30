@@ -672,8 +672,15 @@ restoreOverwrittenFilesWithOriginals().then(() => {
 }).catch((err) => {
   console.error(err)
 })
-
-const uploadToMemory = multer({ storage: multer.memoryStorage(), limits: { fileSize: 200000 } })
+const uploadToMemory = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 200000,
+    files: 10,
+    fields: 20,
+    parts: 30
+  }
+})
 const mimeTypeMap: any = {
    'image/png': 'png',
    'image/jpeg': 'jpg',

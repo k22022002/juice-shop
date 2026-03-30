@@ -33,10 +33,20 @@ export class LastLoginIpComponent implements OnInit {
     let payload = {} as any
     const token = localStorage.getItem('token')
     if (token) {
-      payload = jwtDecode(token)
-      if (payload.data.lastLoginIp) {
+      try {
+        const parts = token.split('.')
+        if (parts.length !== 3) {
+          return
+        }
+        const payloadSegment = parts[1]
+        const decoded = atob(payloadSegment.replace(/-/g, '+').replace(/_/g, '/'))
+        payload = JSON.parse(decoded)
+      } catch {
+        return
+      }
+      if (payload.data && payload.data.lastLoginIp) {
 
-        this.lastLoginIp = this.sanitizer.bypassSecurityTrustHtml(`<small>${payload.data.lastLoginIp}</small>`)
+        this.lastLoginIp = this.sanitizer.bypassSecurityTrustHtml(`${payload.data.lastLoginIp}`)
       }
     }
   }

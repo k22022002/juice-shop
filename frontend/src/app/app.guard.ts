@@ -30,14 +30,19 @@ export class LoginGuard implements CanActivate {
     }))
   }
 
-  tokenDecode () {
+tokenDecode () {
     let payload: any = null
     const token = localStorage.getItem('token')
     if (token) {
       try {
-        payload = jwtDecode(token)
+        const parts = token.split('.')
+        if (parts.length !== 3) {
+          throw new Error('Invalid JWT format')
+        }
+        payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')))
       } catch (err) {
         console.log(err)
+        payload = null
       }
     }
     return payload
