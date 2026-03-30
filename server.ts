@@ -687,7 +687,7 @@ const mimeTypeMap: any = {
    'image/jpg': 'jpg'
  }
  const uploadToDisk = multer({
-   limits: { fileSize: 1024 * 1024 * 5 }, // limit file size to 5MB
+   limits: { fileSize: 1024 * 1024 * 5, files: 10, fields: 20 }, // limit file size to 5MB and restrict number of files/fields
    storage: multer.diskStorage({
      destination: (req: Request, file: any, cb: any) => {
        const isValid = mimeTypeMap[file.mimetype]
