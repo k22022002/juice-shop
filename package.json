@@ -273,7 +273,6 @@
     "tar": "^7.5.10",
     "handlebars": "^4.7.9",
     "lodash": "4.17.21",
-    "lodash.set": "npm:lodash@^4.17.21",
     "unset-value": "^2.0.1",
     "node-jws": "^3.0.0",
     "minimatch": "^10.2.4"
