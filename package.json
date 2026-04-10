@@ -271,9 +271,6 @@
     "vm2": "^3.9.19",
     "tar": "^7.5.10",
     "handlebars": "^4.7.9",
-    "overrides": {
-    "lodash": "lodash/lodash#879aaa9"
-  },
     "unset-value": "^2.0.1",
     "node-jws": "^3.0.0",
     "minimatch": "^10.2.4",
@@ -285,7 +282,8 @@
     },
     "mocha": {
       "js-yaml": "^4.1.1"
-    }
+    },
+    "lodash": "git+https://github.com/lodash/lodash.git#879aaa9"
   },
   "os": [
     "win32",
