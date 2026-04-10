@@ -26,7 +26,8 @@ pipeline {
         
         // --- Polaris Info ---
         POLARIS_SERVER_URL = 'https://poc.polaris.blackduck.com' 
-
+	// --- Black Duck Info ---
+	BLACKDUCK_SEVER_URL = 'https://192.168.12.204'
         // THÊM MỚI: Bật Debug để xem chi tiết tiến trình gọi API của Polaris
         BRIDGE_DEBUG = 'true'
         SYNOPSYS_BRIDGE_DEBUG = 'true'
@@ -48,7 +49,7 @@ pipeline {
                 script {
                     // 1. Install Cosign
                     sh 'rm -f cosign'
-                    sh 'curl -k -sSL --retry 5 --retry-delay 5 "https://github.com/sigstore/cosign/releases/download/v2.2.4/cosign-linux-amd64" -o cosign'
+                    sh 'curl  -sSL --retry 5 --retry-delay 5 "https://github.com/sigstore/cosign/releases/download/v2.2.4/cosign-linux-amd64" -o cosign'
                     sh 'chmod +x cosign'
                     sh './cosign version'                    
                   
@@ -67,7 +68,7 @@ pipeline {
                         script {
                             echo '--- [Step] Running Gitleaks ---'
                             try {
-                                sh 'curl -k -sS -L https://github.com/zricethezav/gitleaks/releases/download/v8.18.1/gitleaks_8.18.1_linux_x64.tar.gz -o gitleaks.tar.gz'
+                                sh 'curl  -sS -L https://github.com/zricethezav/gitleaks/releases/download/v8.18.1/gitleaks_8.18.1_linux_x64.tar.gz -o gitleaks.tar.gz'
                                 sh 'tar -xzf gitleaks.tar.gz gitleaks'
                                 sh 'chmod +x gitleaks'
                                 // Thêm || true để bỏ qua lỗi ngắt pipeline khi tìm thấy secret
@@ -101,10 +102,22 @@ pipeline {
                         }
                     }
                 }
-                
-                /* =========================================================
-                   TẠM THỜI ĐÓNG COVERITY SAST (Do đã dùng Polaris ở trên)
-                   =========================================================
+                stage('Black Duck SCA') {
+                    steps {
+                        echo '--- [Step] Synopsys Black Duck SCA Scan via Plugin ---'
+                        withCredentials([string(credentialsId: 'blackduck-api-token', variable: 'BLACKDUCK_TOKEN')]) {
+                            // --blackduck.trust.cert=true
+                            blackduck_detect detectProperties: """
+                                --blackduck.url="${BLACKDUCK_SERVER_URL}"
+                                --blackduck.api.token="${BLACKDUCK_TOKEN}"
+                                --detect.project.name="Juice-Shop-SCA"
+                                --detect.project.version.name="1.0-${BUILD_NUMBER}"
+                                --detect.npm.include.dev.dependencies=false
+                            """
+                        }
+                    }
+                }
+            }
                 stage('SAST (Coverity)') {
                     when {
                         anyOf {
@@ -148,7 +161,7 @@ pipeline {
                         }
                     }
                 }
-                ========================================================= */
+               
             }
         }
 
@@ -174,13 +187,13 @@ pipeline {
                         
                         echo '--- Running Trivy Container Scan ---'
                         try {
-                            sh "./trivy image --insecure --exit-code 1 --severity HIGH,CRITICAL --no-progress --scanners vuln ${DOCKER_IMAGE}"
+                            sh "./trivy image  --exit-code 1 --severity HIGH,CRITICAL --no-progress --scanners vuln ${DOCKER_IMAGE}"
                         } catch (Exception e) {
                              echo "Trivy found vulnerabilities!"
                         }
 
                         echo '--- Generating CBOM (Container SBOM) ---'
-                        sh "./trivy image --insecure --format cyclonedx --output ${SBOM_CONTAINER} ${DOCKER_IMAGE}"
+                        sh "./trivy image  --format cyclonedx --output ${SBOM_CONTAINER} ${DOCKER_IMAGE}"
                     }
                 }
             }
@@ -238,7 +251,6 @@ pipeline {
                         ${cosignCmd} verify-blob \
                             --key cosign.pub \
                             --signature ${SIGNATURE_FILE} \
-                            --insecure-ignore-tlog=true \
                             ${ARTIFACT_NAME}
                     """
                     echo "Signature verification PASSED!"
