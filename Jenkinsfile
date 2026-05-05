@@ -25,22 +25,19 @@ pipeline {
     }
 
     stages {
-        stage('1. Initialize & Install') {
+	stage('1. Initialize & Install') {
             steps {
                 echo '--- [Step] Checkout & Install ---'
                 cleanWs()
                 checkout scm
                 script {
-                    sh 'rm -f cosign'
-                    sh 'curl -sSL --retry 5 --retry-delay 5 "https://github.com/sigstore/cosign/releases/download/v2.2.4/cosign-linux-amd64" -o cosign'
-                    sh 'chmod +x cosign'
-                    sh './cosign version'                    
+                    // Kiểm tra xem cosign đã có sẵn chưa
+                    sh 'cosign version'                    
                     echo '--- [Step] Installing Juice Shop Dependencies ---'
                     sh 'npm install' 
                 }
             }
         }
-
         stage('2. Security & Quality Gates (Static)') {
             parallel {
                 stage('Secret Scan (Gitleaks)') {
