@@ -94,7 +94,7 @@ pipeline {
             }
         }
 
-        stage('SAST (Coverity)') {
+	stage('SAST (Coverity)') {
             when {
                 anyOf {
                     triggeredBy 'TimerTrigger'
@@ -108,30 +108,33 @@ pipeline {
                         def buildVer = "1.0.${env.BUILD_NUMBER}"
                         def covStream = "juice-shop-stream" 
                         def covBin = "/home/ubuntu/cov-analysis-linux64-2025.9.2/bin"
-                        def covUrl = "http://192.168.12.190:8081"
+                        def covUrl = "http://192.168.12.191:8081"
 
                         sh "${covBin}/cov-configure --javascript --typescript || true"
                         sh "rm -rf idir"
                         sh "${covBin}/coverity capture --project-dir . --dir idir"
                         sh "${covBin}/cov-analyze --dir idir --all --webapp-security --strip-path \$(pwd)"
 
+                        // Dùng biến môi trường COVERITY_PASSPHRASE để bảo mật Token thay vì truyền qua CLI
                         sh """
+                            export COVERITY_PASSPHRASE=\$COV_PASS
                             ${covBin}/cov-commit-defects --dir idir \
                             --url ${covUrl} \
                             --stream ${covStream} \
-                            --user \$COV_USER --password \$COV_PASS \
+                            --user \$COV_USER \
                             --version "${buildVer}" \
                             --description "Juice Shop Build ${env.BUILD_NUMBER}"
                         """
+                        
                         sh "${covBin}/cov-format-errors --dir idir --html-output coverity-report"
                         sh "${covBin}/cov-format-errors --dir idir --json-output-v7 coverity_results.json"
+                        
                         def defectCount = sh(script: "jq '.issues | length' coverity_results.json", returnStdout: true).trim().toInteger()
                         echo "Coverity found: ${defectCount} defects"
                     }
                 }
             }
         }
-
         stage('3. Build & Container Security') {
             steps {
                 script {
