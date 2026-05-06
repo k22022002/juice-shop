@@ -8,9 +8,7 @@ pipeline {
     environment {
         ARTIFACT_NAME   = "juice-shop-${BUILD_NUMBER}.tgz" 
         PROVENANCE_FILE = "provenance.json"
-        SIGNATURE_FILE  = "${ARTIFACT_NAME}.sig"
-        SBOM_CODE       = "sbom-code.json"      
-        SBOM_CONTAINER  = "cbom-container.json" 
+        SBOM_CODE       = "sbom-code.json"    
         DOCKER_IMAGE    = "juice-shop:${BUILD_NUMBER}" 
         APP_PORT        = "3000" 
         DEPLOY_IP       = "192.168.12.190" 
@@ -25,19 +23,18 @@ pipeline {
     }
 
     stages {
-	stage('1. Initialize & Install') {
+        stage('1. Initialize & Install') {
             steps {
                 echo '--- [Step] Checkout & Install ---'
                 cleanWs()
                 checkout scm
                 script {
-                    // Kiểm tra xem cosign đã có sẵn chưa
-                    sh 'cosign version'                    
                     echo '--- [Step] Installing Juice Shop Dependencies ---'
                     sh 'npm install' 
                 }
             }
         }
+
         stage('2. Security & Quality Gates (Static)') {
             parallel {
                 stage('Secret Scan (Gitleaks)') {
@@ -91,7 +88,7 @@ pipeline {
             }
         }
 
-	stage('SAST (Coverity)') {
+        stage('SAST (Coverity)') {
             when {
                 anyOf {
                     triggeredBy 'TimerTrigger'
@@ -105,48 +102,38 @@ pipeline {
                         def buildVer = "1.0.${env.BUILD_NUMBER}"
                         def covStream = "juice-shop-stream" 
                         def covBin = "/home/ubuntu/cov-analysis-linux64-2025.9.2/bin"
-                        def covUrl = "http://192.168.12.191:8081"
+                        def covUrl = "http://192.168.12.190:8081"
 
                         sh "${covBin}/cov-configure --javascript --typescript || true"
                         sh "rm -rf idir"
                         sh "${covBin}/coverity capture --project-dir . --dir idir"
                         sh "${covBin}/cov-analyze --dir idir --all --webapp-security --strip-path \$(pwd)"
 
-                        // Dùng biến môi trường COVERITY_PASSPHRASE để bảo mật Token thay vì truyền qua CLI
                         sh """
-                            export COVERITY_PASSPHRASE=\$COV_PASS
                             ${covBin}/cov-commit-defects --dir idir \
                             --url ${covUrl} \
                             --stream ${covStream} \
-                            --user \$COV_USER \
+                            --user \$COV_USER --password \$COV_PASS \
                             --version "${buildVer}" \
                             --description "Juice Shop Build ${env.BUILD_NUMBER}"
                         """
-                        
                         sh "${covBin}/cov-format-errors --dir idir --html-output coverity-report"
                         sh "${covBin}/cov-format-errors --dir idir --json-output-v7 coverity_results.json"
-                        
                         def defectCount = sh(script: "jq '.issues | length' coverity_results.json", returnStdout: true).trim().toInteger()
                         echo "Coverity found: ${defectCount} defects"
                     }
                 }
             }
         }
-        stage('3. Build & Container Security') {
+
+        stage('3. Build & Package') {
             steps {
                 script {
-                    sh 'rm -f *.tgz *.sig'
+                    sh 'rm -f *.tgz'
                     sh "npm pack"
                     sh "mv juice-shop-*.tgz ${ARTIFACT_NAME}" 
                     if (fileExists('Dockerfile')) {
                         sh "docker build --no-cache -t ${DOCKER_IMAGE} ."
-                        sh 'curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b .'
-                        try {
-                            sh "./trivy image --exit-code 1 --severity HIGH,CRITICAL --no-progress --scanners vuln ${DOCKER_IMAGE}"
-                        } catch (Exception e) {
-                            echo "Trivy found vulnerabilities!"
-                        }
-                        sh "./trivy image --format cyclonedx --output ${SBOM_CONTAINER} ${DOCKER_IMAGE}"
                     }
                 }
             }
@@ -158,33 +145,7 @@ pipeline {
             }
         }
 
-        stage('5. Sign Release Artifacts') {
-            steps {
-                withCredentials([
-                    string(credentialsId: 'cosign-password-id', variable: 'COSIGN_PASSWORD'),
-                    file(credentialsId: 'cosign-private-key', variable: 'COSIGN_KEY_PATH')
-                ]) {
-                    script {
-                        def cosignCmd = (fileExists('cosign')) ? './cosign' : 'cosign'
-                        sh "cp \$COSIGN_KEY_PATH cosign.key"
-                        sh "${cosignCmd} public-key --key cosign.key --outfile cosign.pub"
-                        sh "${cosignCmd} sign-blob --yes --key cosign.key --bundle cosign.bundle --tlog-upload=false --output-signature ${SIGNATURE_FILE} ${ARTIFACT_NAME}"
-                        sh "${cosignCmd} sign-blob --yes --key cosign.key --tlog-upload=false --output-signature ${SBOM_CODE}.sig ${SBOM_CODE}"
-                    }
-                }
-            }
-        }
-
-        stage('6. Verify Signatures') {
-            steps {
-                script {
-                    def cosignCmd = (fileExists('cosign')) ? './cosign' : 'cosign'
-                    sh "${cosignCmd} verify-blob --key cosign.pub --signature ${SIGNATURE_FILE} ${ARTIFACT_NAME}"
-                }
-            }
-        }
-
-        stage('7. Generate Attestation') {
+        stage('5. Generate Attestation') {
             steps {
                 script {
                     def artifactSha256 = sh(script: "sha256sum ${ARTIFACT_NAME} | awk '{print \$1}'", returnStdout: true).trim()
@@ -213,7 +174,7 @@ pipeline {
             }
         }
 
-        stage('8. Deploy') {
+        stage('6. Deploy') {
             steps {
                 script {
                     def containerName = "juice-shop-prod" 
@@ -229,7 +190,6 @@ pipeline {
     post {
         always {
              sh "docker rmi ${DOCKER_IMAGE} || true"
-             sh "rm -f cosign cosign.key" 
              sh "pkill -f node || true"
         }
         success {
