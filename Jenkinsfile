@@ -11,7 +11,7 @@ pipeline {
         SBOM_CODE       = "sbom-code.json"    
         DOCKER_IMAGE    = "juice-shop:${BUILD_NUMBER}" 
         APP_PORT        = "3000" 
-        DEPLOY_IP       = "192.168.12.190" 
+        DEPLOY_IP       = "192.168.12.191" 
         POLARIS_SERVER_URL = 'https://poc.polaris.blackduck.com' 
         BLACKDUCK_SERVER_URL = 'https://192.168.12.204'
         BRIDGE_DEBUG = 'true'
@@ -102,7 +102,7 @@ pipeline {
                         def buildVer = "1.0.${env.BUILD_NUMBER}"
                         def covStream = "juice-shop-stream" 
                         def covBin = "/home/ubuntu/cov-analysis-linux64-2025.9.2/bin"
-                        def covUrl = "http://192.168.12.190:8081"
+                        def covUrl = "http://192.168.12.191:8081"
 
                         sh "${covBin}/cov-configure --javascript --typescript || true"
                         sh "rm -rf idir"
