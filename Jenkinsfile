@@ -61,7 +61,7 @@ pipeline {
                 // Quét SAST trên Coverity Local CLI & Server
                 stage('Coverity SAST') {
                     steps {
-                        withCredentials([usernamePassword(credentialsId: 'coverity-credentials', usernameVariable: 'COV_USER', passwordVariable: 'COV_PASS')]) {
+                        withCredentials([file(credentialsId: 'coverity-credentials', variable: 'COV_AUTH_KEY')]) {
                             script {
                                 echo '--- [Step] Coverity SAST Scan ---'
                                 def buildVer = "1.0.${env.BUILD_NUMBER}"
