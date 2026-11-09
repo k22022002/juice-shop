@@ -2,6 +2,7 @@ pipeline {
     agent any
 
     environment {
+        CYPRESS_INSTALL_BINARY = '0'
         ARTIFACT_NAME         = "juice-shop-${BUILD_NUMBER}.tgz"
         DOCKER_IMAGE          = "juice-shop:${BUILD_NUMBER}"
         APP_PORT              = "3000"
