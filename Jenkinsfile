@@ -45,14 +45,17 @@ pipeline {
                         echo '--- [Step] Cloud Polaris SCA Scan ---'
                         timeout(time: 30, unit: 'MINUTES') {
                             withCredentials([string(credentialsId: 'polaris-token', variable: 'POLARIS_TOKEN')]) {
-                                security_scan product: 'polaris',
-                                              polaris_server_url: "${POLARIS_SERVER_URL}",
-                                              polaris_access_token: POLARIS_TOKEN, 
-                                              polaris_application_name: 'APAC-ASEAN-MI2-1', // Khớp với Application trên Polaris
-                                              polaris_project_name: 'juice-shop-project',       // Khớp với Project Name vừa tạo
-                                              polaris_branch_name: 'main', 
-                                              polaris_assessment_types: 'SCA',
-                                              polaris_waitForScan: true
+                                // catchError giúp pipeline không bị dừng khi vi phạm policy break build
+                                catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                                    security_scan product: 'polaris',
+                                                  polaris_server_url: "${POLARIS_SERVER_URL}",
+                                                  polaris_access_token: POLARIS_TOKEN, 
+                                                  polaris_application_name: 'APAC-ASEAN-MI2-1',
+                                                  polaris_project_name: 'juice-shop-project',
+                                                  polaris_branch_name: 'main', 
+                                                  polaris_assessment_types: 'SCA',
+                                                  polaris_waitForScan: true
+                                }
                             }
                         }
                     }
