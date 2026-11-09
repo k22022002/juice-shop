@@ -32,7 +32,7 @@ pipeline {
                 checkout scm
                 script {
                     echo '--- [Step] Installing Juice Shop Dependencies ---'
-                    sh 'npm install'
+                    sh 'npm install --ignore-scripts'
                 }
             }
         }
