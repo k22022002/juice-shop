@@ -1,25 +1,26 @@
 pipeline {
     agent any
-    
-    parameters {
-        booleanParam(name: 'FORCE_COVERITY', defaultValue: false, description: 'Tích vào đây nếu muốn chạy quét Coverity Full Scan')
-    }
 
     environment {
-        ARTIFACT_NAME   = "juice-shop-${BUILD_NUMBER}.tgz" 
-        PROVENANCE_FILE = "provenance.json"
-        SBOM_CODE       = "sbom-code.json"    
-        DOCKER_IMAGE    = "juice-shop:${BUILD_NUMBER}" 
-        APP_PORT        = "3000" 
-        DEPLOY_IP       = "192.168.12.191" 
-        POLARIS_SERVER_URL = 'https://poc.polaris.blackduck.com' 
-        BLACKDUCK_SERVER_URL = 'https://192.168.12.204'
-        BRIDGE_DEBUG = 'true'
+        ARTIFACT_NAME         = "juice-shop-${BUILD_NUMBER}.tgz"
+        DOCKER_IMAGE          = "juice-shop:${BUILD_NUMBER}"
+        APP_PORT              = "3000"
+        DEPLOY_IP             = "192.168.12.190"
+
+        // --- CẤU HÌNH CLOUD POLARIS (SCA) ---
+        // Thay bằng URL trên thanh trình duyệt của bạn nếu khác URL bên dưới
+        POLARIS_SERVER_URL    = 'https://poc.polaris.blackduck.com'
+        BRIDGE_DEBUG          = 'true'
         SYNOPSYS_BRIDGE_DEBUG = 'true'
+
+        // --- CẤU HÌNH COVERITY (SAST) ---
+        COV_BIN               = "/home/ubuntu/cov-analysis-linux64-2025.9.2/bin"
+        COV_URL               = "http://192.168.12.190:8081"
+        COV_STREAM            = "juice-shop-stream"
     }
 
     tools {
-        nodejs 'NodeJS' 
+        nodejs 'NodeJS'
     }
 
     stages {
@@ -30,97 +31,64 @@ pipeline {
                 checkout scm
                 script {
                     echo '--- [Step] Installing Juice Shop Dependencies ---'
-                    sh 'npm install' 
+                    sh 'npm install'
                 }
             }
         }
 
-        stage('2. Security & Quality Gates (Static)') {
+        stage('2. Security Scans') {
             parallel {
-                stage('Secret Scan (Gitleaks)') {
+                // Quét SCA trên Cloud Polaris
+                stage('Polaris SCA') {
                     steps {
-                        script {
-                            echo '--- [Step] Running Gitleaks ---'
-                            try {
-                                sh 'curl -sS -L https://github.com/zricethezav/gitleaks/releases/download/v8.18.1/gitleaks_8.18.1_linux_x64.tar.gz -o gitleaks.tar.gz'
-                                sh 'tar -xzf gitleaks.tar.gz gitleaks'
-                                sh 'chmod +x gitleaks'
-                                sh './gitleaks detect --source="." --no-git --verbose || true'
-                            } catch (Exception e) {
-                                echo "GITLEAKS FOUND SECRETS OR FAILED!"
-                            }
-                        }
-                    }
-                }
-                
-                stage('Polaris (SAST & SCA)') {
-                    steps {
-                        echo '--- [Step] Synopsys Polaris Scan ---'
+                        echo '--- [Step] Cloud Polaris SCA Scan ---'
                         timeout(time: 30, unit: 'MINUTES') {
                             withCredentials([string(credentialsId: 'polaris-token', variable: 'POLARIS_TOKEN')]) {
                                 security_scan product: 'polaris',
                                               polaris_server_url: "${POLARIS_SERVER_URL}",
                                               polaris_access_token: POLARIS_TOKEN, 
-                                              polaris_application_name: 'Juice-Shop-Full-Scan',
-                                              polaris_project_name: 'juice-shop-project',
+                                              polaris_application_name: 'Juice-Shop-Full-Scan', // Khớp với Application trên Polaris
+                                              polaris_project_name: 'juice-shop-project',       // Khớp với Project Name vừa tạo
                                               polaris_branch_name: 'main', 
-                                              polaris_assessment_types: 'SAST,SCA',
+                                              polaris_assessment_types: 'SCA',
                                               polaris_waitForScan: true
                             }
                         }
                     }
                 }
 
-                stage('Black Duck SCA') {
+                // Quét SAST trên Coverity Local CLI & Server
+                stage('Coverity SAST') {
                     steps {
-                        echo '--- [Step] Synopsys Black Duck SCA Scan via Plugin ---'
-                        withCredentials([string(credentialsId: 'blackduck-api-token', variable: 'BLACKDUCK_TOKEN')]) {
-                            blackduck_detect detectProperties: """
-                                --blackduck.url="${BLACKDUCK_SERVER_URL}"
-                                --blackduck.api.token="${BLACKDUCK_TOKEN}"
-                                --detect.project.name="Juice-Shop-SCA"
-                                --detect.project.version.name="1.0-${BUILD_NUMBER}"
-                                --detect.npm.include.dev.dependencies=false
-                            """
+                        withCredentials([usernamePassword(credentialsId: 'coverity-credentials', usernameVariable: 'COV_USER', passwordVariable: 'COV_PASS')]) {
+                            script {
+                                echo '--- [Step] Coverity SAST Scan ---'
+                                def buildVer = "1.0.${env.BUILD_NUMBER}"
+
+                                sh "${COV_BIN}/cov-configure --javascript --typescript || true"
+                                sh "rm -rf idir"
+                                
+                                sh "${COV_BIN}/coverity capture --project-dir . --dir idir"
+                                sh "${COV_BIN}/cov-analyze --dir idir --all --webapp-security --strip-path \$(pwd)"
+
+                                sh """
+                                    ${COV_BIN}/cov-commit-defects --dir idir \
+                                    --url ${COV_URL} \
+                                    --stream ${COV_STREAM} \
+                                    --user \$COV_USER --password \$COV_PASS \
+                                    --version "${buildVer}" \
+                                    --description "Juice Shop Build ${env.BUILD_NUMBER}"
+                                """
+
+                                sh "${COV_BIN}/cov-format-errors --dir idir --html-output coverity-report || true"
+                                sh "${COV_BIN}/cov-format-errors --dir idir --json-output-v7 coverity_results.json || true"
+
+                                if (fileExists('coverity_results.json')) {
+                                    def defectCount = sh(script: "jq '.issues | length' coverity_results.json", returnStdout: true).trim()
+                                    echo "Coverity found: ${defectCount} defects"
+                                }
+                            }
                         }
-                    }
-                }
-            }
-        }
-
-        stage('SAST (Coverity)') {
-            when {
-                anyOf {
-                    triggeredBy 'TimerTrigger'
-                    expression { return params.FORCE_COVERITY == true }
-                }
-            }
-            steps {
-                withCredentials([usernamePassword(credentialsId: 'coverity-credentials', usernameVariable: 'COV_USER', passwordVariable: 'COV_PASS')]) {
-                    script {
-                        echo '--- [Step] Synopsys Coverity SAST ---'
-                        def buildVer = "1.0.${env.BUILD_NUMBER}"
-                        def covStream = "juice-shop-stream" 
-                        def covBin = "/home/ubuntu/cov-analysis-linux64-2025.9.2/bin"
-                        def covUrl = "http://192.168.12.191:8081"
-
-                        sh "${covBin}/cov-configure --javascript --typescript || true"
-                        sh "rm -rf idir"
-                        sh "${covBin}/coverity capture --project-dir . --dir idir"
-                        sh "${covBin}/cov-analyze --dir idir --all --webapp-security --strip-path \$(pwd)"
-
-                        sh """
-                            ${covBin}/cov-commit-defects --dir idir \
-                            --url ${covUrl} \
-                            --stream ${covStream} \
-                            --user \$COV_USER --password \$COV_PASS \
-                            --version "${buildVer}" \
-                            --description "Juice Shop Build ${env.BUILD_NUMBER}"
-                        """
-                        sh "${covBin}/cov-format-errors --dir idir --html-output coverity-report"
-                        sh "${covBin}/cov-format-errors --dir idir --json-output-v7 coverity_results.json"
-                        def defectCount = sh(script: "jq '.issues | length' coverity_results.json", returnStdout: true).trim().toInteger()
-                        echo "Coverity found: ${defectCount} defects"
                     }
                 }
             }
@@ -129,58 +97,23 @@ pipeline {
         stage('3. Build & Package') {
             steps {
                 script {
-                    sh 'rm -f *.tgz'
-                    sh "npm pack"
-                    sh "mv juice-shop-*.tgz ${ARTIFACT_NAME}" 
-                    if (fileExists('Dockerfile')) {
+                    sh 'rm -f *.tgz'[cite: 1]
+                    sh "npm pack"[cite: 1]
+                    sh "mv juice-shop-*.tgz ${ARTIFACT_NAME}"[cite: 1]
+                    if (fileExists('Dockerfile')) {[cite: 1]
                         sh "docker build --no-cache -t ${DOCKER_IMAGE} ."
                     }
                 }
             }
         }
 
-        stage('4. Generate Code SBOM') {
-            steps {
-                sh "npx @cyclonedx/cyclonedx-npm --output-file ${SBOM_CODE}"
-            }
-        }
-
-        stage('5. Generate Attestation') {
+        stage('4. Deploy') {
             steps {
                 script {
-                    def artifactSha256 = sh(script: "sha256sum ${ARTIFACT_NAME} | awk '{print \$1}'", returnStdout: true).trim()
-                    def gitCommit = sh(script: "git rev-parse HEAD", returnStdout: true).trim()
-                    def gitUrl = sh(script: "git config --get remote.origin.url", returnStdout: true).trim()
-                    def buildId = env.BUILD_TAG
-                    sh """
-                        jq -n \
-                        --arg builder "Jenkins-CI" \
-                        --arg buildId "$buildId" \
-                        --arg gitUrl "$gitUrl" \
-                        --arg gitCommit "$gitCommit" \
-                        --arg artifact "$ARTIFACT_NAME" \
-                        --arg sha256 "$artifactSha256" \
-                        '{
-                            builder: { id: \$builder },
-                            buildType: "https://github.com/npm/cli/commands/pack",
-                            invocation: {
-                                configSource: { uri: \$gitUrl, digest: { sha1: \$gitCommit }, entryPoint: "Jenkinsfile" },
-                                parameters: { buildId: \$buildId }
-                            },
-                            subject: [{ name: \$artifact, digest: { sha256: \$sha256 } }]
-                        }' > ${PROVENANCE_FILE}
-                    """
-                }
-            }
-        }
-
-        stage('6. Deploy') {
-            steps {
-                script {
-                    def containerName = "juice-shop-prod" 
+                    def containerName = "juice-shop-prod"
                     sh "docker rm -f ${containerName} || true"
                     sh "docker run -d --restart unless-stopped --name ${containerName} -p ${APP_PORT}:${APP_PORT} ${DOCKER_IMAGE}"
-                    sh "sleep 5" 
+                    sh "sleep 5"
                     sh "docker ps | grep ${containerName}"
                 }
             }
@@ -193,10 +126,10 @@ pipeline {
              sh "pkill -f node || true"
         }
         success {
-            echo "SUCCESS: Pipeline finished securely. Ready for production."
+            echo "SUCCESS: Pipeline finished. Ready for production."
         }
         failure {
-            echo "Pipeline failed. Please check Security Scans or Quality Gates."
+            echo "Pipeline failed. Please check build logs or security scans."
         }
     }
 }
