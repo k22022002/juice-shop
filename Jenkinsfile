@@ -97,10 +97,10 @@ pipeline {
         stage('3. Build & Package') {
             steps {
                 script {
-                    sh 'rm -f *.tgz'[cite: 1]
-                    sh "npm pack"[cite: 1]
-                    sh "mv juice-shop-*.tgz ${ARTIFACT_NAME}"[cite: 1]
-                    if (fileExists('Dockerfile')) {[cite: 1]
+                    sh 'rm -f *.tgz'
+                    sh "npm pack"
+                    sh "mv juice-shop-*.tgz ${ARTIFACT_NAME}"
+                    if (fileExists('Dockerfile')) {
                         sh "docker build --no-cache -t ${DOCKER_IMAGE} ."
                     }
                 }
