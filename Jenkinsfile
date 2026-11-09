@@ -15,7 +15,7 @@ pipeline {
         SYNOPSYS_BRIDGE_DEBUG = 'true'
 
         // --- CẤU HÌNH COVERITY (SAST) ---
-        COV_BIN               = "/home/ubuntu/cov-analysis-linux64-2025.9.2/bin"
+        COV_BIN               = "/home/ubuntu/cov-analysis-linux64-2026.9.0/bin"
         COV_URL               = "http://192.168.12.190:8081"
         COV_STREAM            = "juice-shop-stream"
     }
@@ -48,7 +48,7 @@ pipeline {
                                 security_scan product: 'polaris',
                                               polaris_server_url: "${POLARIS_SERVER_URL}",
                                               polaris_access_token: POLARIS_TOKEN, 
-                                              polaris_application_name: 'Juice-Shop-Full-Scan', // Khớp với Application trên Polaris
+                                              polaris_application_name: 'APAC-ASEAN-MI2-1', // Khớp với Application trên Polaris
                                               polaris_project_name: 'juice-shop-project',       // Khớp với Project Name vừa tạo
                                               polaris_branch_name: 'main', 
                                               polaris_assessment_types: 'SCA',
