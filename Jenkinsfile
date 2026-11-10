@@ -101,6 +101,7 @@ pipeline {
         stage('3. Build & Package') {
             steps {
                 script {
+                    sh "sed -i 's/SimpleChanges/type SimpleChanges/g' frontend/src/app/password-strength/password-strength.component.ts"
                     sh 'rm -f *.tgz'
                     sh "npm pack"
                     sh "mv juice-shop-*.tgz ${ARTIFACT_NAME}"
