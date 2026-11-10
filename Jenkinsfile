@@ -47,7 +47,8 @@ pipeline {
                             withCredentials([string(credentialsId: 'blackduck-sca-token', variable: 'BLACKDUCK_TOKEN')]) {
                                 script {
                                     sh """
-                                        bash <(curl -s -L https://detect.synopsys.com/detect9.sh) \
+                                        curl -s -L -o detect9.sh https://detect.synopsys.com/detect9.sh
+                                        bash detect9.sh \
                                             --blackduck.url="${BLACKDUCK_URL}" \
                                             --blackduck.api.token="\${BLACKDUCK_TOKEN}" \
                                             --blackduck.trust.cert=true \
