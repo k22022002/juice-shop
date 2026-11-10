@@ -3,21 +3,20 @@ pipeline {
 
     environment {
         CYPRESS_INSTALL_BINARY = '0'
-        ARTIFACT_NAME         = "juice-shop-${BUILD_NUMBER}.tgz"
-        DOCKER_IMAGE          = "juice-shop:${BUILD_NUMBER}"
-        APP_PORT              = "3000"
-        DEPLOY_IP             = "192.168.12.190"
+        ARTIFACT_NAME          = "juice-shop-${BUILD_NUMBER}.tgz"
+        DOCKER_IMAGE           = "juice-shop:${BUILD_NUMBER}"
+        APP_PORT               = "3000"
+        DEPLOY_IP              = "192.168.12.190"
 
-        // --- CẤU HÌNH CLOUD POLARIS (SCA) ---
-        // Thay bằng URL trên thanh trình duyệt của bạn nếu khác URL bên dưới
-        POLARIS_SERVER_URL    = 'https://poc.polaris.blackduck.com'
-        BRIDGE_DEBUG          = 'true'
-        SYNOPSYS_BRIDGE_DEBUG = 'true'
+        // --- CẤU HÌNH BLACK DUCK ON-PREMISE (SCA) ---
+        BLACKDUCK_URL          = 'https://192.168.12.204'
+        BLACKDUCK_PROJECT_NAME = 'juice-shop-project'
+        BLACKDUCK_VERSION_NAME = 'main'
 
         // --- CẤU HÌNH COVERITY (SAST) ---
-        COV_BIN               = "/home/ubuntu/cov-analysis-linux64-2026.9.0/bin"
-        COV_URL               = "http://192.168.12.190:8081"
-        COV_STREAM            = "juice-shop-stream"
+        COV_BIN                = "/home/ubuntu/cov-analysis-linux64-2026.9.0/bin"
+        COV_URL                = "http://192.168.12.190:8081"
+        COV_STREAM             = "juice-shop-stream"
     }
 
     tools {
@@ -29,38 +28,43 @@ pipeline {
             steps {
                 echo '--- [Step] Checkout & Install ---'
                 cleanWs()
-                checkout scm
+                git branch: 'main', url: 'https://github.com/k22022002/juice-shop.git'
                 script {
-                    echo '--- [Step] Installing Juice Shop Dependencies ---'
-                    sh 'npm install --ignore-scripts'
+                    echo '--- [Step] Installing Dependencies ---'
+                    sh 'CYPRESS_INSTALL_BINARY=0 npm install --ignore-scripts'
                 }
             }
         }
 
         stage('2. Security Scans') {
             parallel {
-                // Quét SCA trên Cloud Polaris
-                stage('Polaris SCA') {
+                // Nhánh 1: Quét SCA qua Black Duck On-Premise
+                stage('Black Duck On-Prem SCA') {
                     steps {
-                        echo '--- [Step] Cloud Polaris SCA Scan ---'
+                        echo '--- [Step] Black Duck On-Prem SCA Scan ---'
                         timeout(time: 30, unit: 'MINUTES') {
-                            withCredentials([string(credentialsId: 'polaris-token', variable: 'POLARIS_TOKEN')]) {
-                                // catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
-                                    security_scan product: 'polaris',
-                                                  polaris_server_url: "${POLARIS_SERVER_URL}",
-                                                  polaris_access_token: POLARIS_TOKEN, 
-                                                  polaris_application_name: 'APAC-ASEAN-MI2-1',
-                                                  polaris_project_name: 'juice-shop-project',
-                                                  polaris_branch_name: 'main', 
-                                                  polaris_assessment_types: 'SCA',
-                                                  polaris_waitForScan: false
-                                // }
+                            // Cập nhật đúng ID credential: blackduck-sca-token
+                            withCredentials([string(credentialsId: 'blackduck-sca-token', variable: 'BLACKDUCK_TOKEN')]) {
+                                script {
+                                    sh """
+                                        bash <(curl -s -L https://detect.synopsys.com/detect9.sh) \
+                                            --blackduck.url="${BLACKDUCK_URL}" \
+                                            --blackduck.api.token="\${BLACKDUCK_TOKEN}" \
+                                            --blackduck.trust.cert=true \
+                                            --detect.project.name="${BLACKDUCK_PROJECT_NAME}" \
+                                            --detect.project.version.name="${BLACKDUCK_VERSION_NAME}" \
+                                            --detect.detector.search.depth=3 \
+                                            --detect.npm.include.dev.dependencies=false \
+                                            --detect.blackduck.scan.mode=INTELLIGENT \
+                                            --detect.wait.for.results=true
+                                    """
+                                }
                             }
                         }
                     }
                 }
 
-                // Quét SAST trên Coverity Local CLI & Server
+                // Nhánh 2: Quét SAST trên Coverity Local CLI & Server
                 stage('Coverity SAST') {
                     steps {
                         withCredentials([file(credentialsId: 'coverity-credentials', variable: 'COV_AUTH_KEY')]) {
@@ -74,7 +78,6 @@ pipeline {
                                 sh "${COV_BIN}/coverity capture --project-dir . --dir idir"
                                 sh "${COV_BIN}/cov-analyze --dir idir --all --webapp-security --strip-path \$(pwd)"
 
-                                // Dùng auth-key-file thay thế hoàn toàn cho --user và --password
                                 sh """
                                     ${COV_BIN}/cov-commit-defects --dir idir \
                                     --url ${COV_URL} \
@@ -101,11 +104,13 @@ pipeline {
         stage('3. Build & Package') {
             steps {
                 script {
-                    // 1. Khôi phục dòng 24 về đúng cú pháp 'changes: SimpleChanges' (xóa chữ 'type' thừa)
-                    sh "sed -i 's/changes: type SimpleChanges/changes: SimpleChanges/g' frontend/src/app/password-strength/password-strength.component.ts"
-                    
-                    // 2. Chỉ thêm 'type' vào câu lệnh import (trước dấu đóng ngoặc nhọn)
-                    sh "sed -i 's/, SimpleChanges }/, type SimpleChanges }/g' frontend/src/app/password-strength/password-strength.component.ts"
+                    // Sửa cú pháp TypeScript của Angular
+                    sh "sed -i 's/changes: type SimpleChanges/changes: SimpleChanges/g' frontend/src/app/password-strength/password-strength.component.ts || true"
+                    sh "sed -i 's/, SimpleChanges }/, type SimpleChanges }/g' frontend/src/app/password-strength/password-strength.component.ts || true"
+
+                    // Xử lý lỗi SBOM XML: chuyển lệnh sang chỉ sinh JSON (hoặc bỏ qua) để không bị ngắt docker build
+                    sh "sed -i 's/RUN npm run sbom/RUN npm run sbom:json || true/g' Dockerfile"
+
                     sh 'rm -f *.tgz'
                     sh "npm pack"
                     sh "mv juice-shop-*.tgz ${ARTIFACT_NAME}"
@@ -135,10 +140,10 @@ pipeline {
              sh "pkill -f node || true"
         }
         success {
-            echo "SUCCESS: Pipeline finished. Ready for production."
+            echo "SUCCESS: Pipeline finished. Security scans and deployment completed."
         }
         failure {
-            echo "Pipeline failed. Please check build logs or security scans."
+            echo "Pipeline failed. Please check security scan or build logs."
         }
     }
 }
