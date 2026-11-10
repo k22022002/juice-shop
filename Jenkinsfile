@@ -38,17 +38,15 @@ pipeline {
 
         stage('2. Security Scans') {
             parallel {
-                // Nhánh 1: Quét SCA qua Black Duck On-Premise
+                // Nhánh 1: Quét SCA qua Black Duck On-Premise (Offline Air Gap)
                 stage('Black Duck On-Prem SCA') {
                     steps {
-                        echo '--- [Step] Black Duck On-Prem SCA Scan ---'
+                        echo '--- [Step] Black Duck On-Prem SCA Scan (Air Gap) ---'
                         timeout(time: 30, unit: 'MINUTES') {
-                            // Cập nhật đúng ID credential: blackduck-sca-token
                             withCredentials([string(credentialsId: 'blackduck-sca-token', variable: 'BLACKDUCK_TOKEN')]) {
                                 script {
                                     sh """
-                                        curl -s -L -o detect9.sh https://detect.synopsys.com/detect9.sh
-                                        bash detect9.sh \
+                                        java -jar /home/ubuntu/detect-airgap/detect-12.1.0.jar \
                                             --blackduck.url="${BLACKDUCK_URL}" \
                                             --blackduck.api.token="\${BLACKDUCK_TOKEN}" \
                                             --blackduck.trust.cert=true \
@@ -57,7 +55,9 @@ pipeline {
                                             --detect.detector.search.depth=3 \
                                             --detect.npm.include.dev.dependencies=false \
                                             --detect.blackduck.scan.mode=INTELLIGENT \
-                                            --detect.wait.for.results=true
+                                            --detect.wait.for.results=true \
+                                            --detect.air.gap.mode=true \
+                                            --detect.air.gap.path=/home/ubuntu/detect-airgap
                                     """
                                 }
                             }
