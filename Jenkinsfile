@@ -101,7 +101,11 @@ pipeline {
         stage('3. Build & Package') {
             steps {
                 script {
-                    sh "sed -i 's/SimpleChanges/type SimpleChanges/g' frontend/src/app/password-strength/password-strength.component.ts"
+                    // 1. Khôi phục dòng 24 về đúng cú pháp 'changes: SimpleChanges' (xóa chữ 'type' thừa)
+                    sh "sed -i 's/changes: type SimpleChanges/changes: SimpleChanges/g' frontend/src/app/password-strength/password-strength.component.ts"
+                    
+                    // 2. Chỉ thêm 'type' vào câu lệnh import (trước dấu đóng ngoặc nhọn)
+                    sh "sed -i 's/, SimpleChanges }/, type SimpleChanges }/g' frontend/src/app/password-strength/password-strength.component.ts"
                     sh 'rm -f *.tgz'
                     sh "npm pack"
                     sh "mv juice-shop-*.tgz ${ARTIFACT_NAME}"
