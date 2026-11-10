@@ -66,22 +66,23 @@ pipeline {
                         withCredentials([file(credentialsId: 'coverity-credentials', variable: 'COV_AUTH_KEY')]) {
                             script {
                                 echo '--- [Step] Coverity SAST Scan ---'
-                                def buildVer = "1.0.${env.BUILD_NUMBER}"
+                                def buildVer = "1.0.${env.BUILD_NUMBER}"[cite: 1]
 
                                 sh "${COV_BIN}/cov-configure --javascript --typescript || true"
-                                sh "rm -rf idir"
+                                sh "rm -rf idir"[cite: 1]
                                 
                                 sh "${COV_BIN}/coverity capture --project-dir . --dir idir"
                                 sh "${COV_BIN}/cov-analyze --dir idir --all --webapp-security --strip-path \$(pwd)"
 
+                                // Dùng auth-key-file thay thế hoàn toàn cho --user và --password
                                 sh """
                                     ${COV_BIN}/cov-commit-defects --dir idir \
                                     --url ${COV_URL} \
                                     --stream ${COV_STREAM} \
-                                    --user \$COV_USER --password \$COV_PASS \
+                                    --auth-key-file "\$COV_AUTH_KEY" \
                                     --version "${buildVer}" \
                                     --description "Juice Shop Build ${env.BUILD_NUMBER}"
-                                """
+                                """[cite: 1]
 
                                 sh "${COV_BIN}/cov-format-errors --dir idir --html-output coverity-report || true"
                                 sh "${COV_BIN}/cov-format-errors --dir idir --json-output-v7 coverity_results.json || true"
